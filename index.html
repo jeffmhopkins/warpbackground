@@ -69,8 +69,8 @@
 </head>
 <body>
     <canvas id="starfield"></canvas>
-    <button id="toggleMenu">Hide Menu</button>
-    <div id="controls">
+    <button id="toggleMenu">Show Menu</button>
+    <div id="controls" class="hidden">
         <div>
             <label for="speed">Speed: </label>
             <input type="range" id="speed" min="0.1" max="15" step="0.1" value="7">
@@ -168,7 +168,7 @@
         let exclusionRadius = parseFloat(exclusionRadiusSlider.value);
         let fadeDuration = parseFloat(fadeDurationSlider.value);
         let starShape = starShapeSelect.value;
-        let menuVisible = true;
+        let menuVisible = false;
         let originX = window.innerWidth / 2;
         let originY = window.innerHeight / 2;
 
@@ -364,7 +364,7 @@
         sizeVarValue.textContent = sizeVar.toFixed(1);
         exclusionRadiusValue.textContent = exclusionRadius.toFixed(2);
         fadeDurationValue.textContent = fadeDuration.toFixed(0);
-        toggleMenu.style.top = `${controls.offsetHeight + 20}px`;
+        toggleMenu.style.top = '10px';
         initStars();
         animate();
     </script>
