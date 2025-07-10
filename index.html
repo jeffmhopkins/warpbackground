@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warp Starfield</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: black;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+        #controls.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #controls div {
+            margin: 5px 0;
+        }
+        label {
+            margin-right: 10px;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+        #toggleMenu {
+            position: absolute;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 15;
+        }
+        #toggleMenu.hidden {
+            display: none;
+        }
+        select {
+            width: 150px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 2px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="starfield"></canvas>
+    <button id="toggleMenu">Hide Menu</button>
+    <div id="controls">
+        <div>
+            <label for="speed">Speed: </label>
+            <input type="range" id="speed" min="0.1" max="15" step="0.1" value="2">
+            <span id="speedValue">2</span>
+        </div>
+        <div>
+            <label for="tailLength">Tail Length: </label>
+            <input type="range" id="tailLength" min="0" max="50" step="1" value="10" disabled>
+            <span id="tailLengthValue">10</span>
+        </div>
+        <div>
+            <label for="density">Density: </label>
+            <input type="range" id="density" min="50" max="5000" step="10" value="200">
+            <span id="densityValue">200</span>
+        </div>
+        <div>
+            <label for="baseSize">Base Size: </label>
+            <input type="range" id="baseSize" min="0.05" max="5" step="0.1" value="0.1">
+            <span id="baseSizeValue">0.1</span>
+        </div>
+        <div>
+            <label for="sizeVar">Size Variability: </label>
+            <input type="range" id="sizeVar" min="0" max="2" step="0.05" value="0.3">
+            <span id="sizeVarValue">0.3</span>
+        </div>
+        <div>
+            <label for="colorShift">Color Shift: </label>
+            <input type="range" id="colorShift" min="0" max="2" step="0.01" value="0.2">
+            <span id="colorShiftValue">0.2</span>
+        </div>
+        <div>
+            <label for="brightnessVar">Brightness Var: </label>
+            <input type="range" id="brightnessVar" min="0.1" max="2" step="0.01" value="0.5">
+            <span id="brightnessVarValue">0.5</span>
+        </div>
+        <div>
+            <label for="fov">Field of View: </label>
+            <input type="range" id="fov" min="0.1" max="3" step="0.1" value="1">
+            <span id="fovValue">1</span>
+        </div>
+        <div>
+            <label for="starShape">Star Shape: </label>
+            <select id="starShape">
+                <option value="point" selected>Point (Circle)</option>
+                <option value="line">Line (Tailed)</option>
+            </select>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('starfield');
+        const ctx = canvas.getContext('2d');
+        const speedSlider = document.getElementById('speed');
+        const tailLengthSlider = document.getElementById('tailLength');
+        const densitySlider = document.getElementById('density');
+        const baseSizeSlider = document.getElementById('baseSize');
+        const sizeVarSlider = document.getElementById('sizeVar');
+        const colorShiftSlider = document.getElementById('colorShift');
+        const brightnessVarSlider = document.getElementById('brightnessVar');
+        const fovSlider = document.getElementById('fov');
+        const starShapeSelect = document.getElementById('starShape');
+        const speedValue = document.getElementById('speedValue');
+        const tailLengthValue = document.getElementById('tailLengthValue');
+        const densityValue = document.getElementById('densityValue');
+        const baseSizeValue = document.getElementById('baseSizeValue');
+        const sizeVarValue = document.getElementById('sizeVarValue');
+        const colorShiftValue = document.getElementById('colorShiftValue');
+        const brightnessVarValue = document.getElementById('brightnessVarValue');
+        const fovValue = document.getElementById('fovValue');
+        const toggleMenu = document.getElementById('toggleMenu');
+        const controls = document.getElementById('controls');
+
+        let width, height, stars = [];
+        let speed = parseFloat(speedSlider.value);
+        let tailLength = parseFloat(tailLengthSlider.value);
+        let density = parseInt(densitySlider.value);
+        let baseSize = parseFloat(baseSizeSlider.value);
+        let sizeVar = parseFloat(sizeVarSlider.value);
+        let colorShift = parseFloat(colorShiftSlider.value);
+        let brightnessVar = parseFloat(brightnessVarSlider.value);
+        let fov = parseFloat(fovSlider.value);
+        let starShape = starShapeSelect.value; // Default to 'point'
+        let menuVisible = true;
+        let originX = window.innerWidth / 2; // Default to center
+        let originY = window.innerHeight / 2;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            originX = (originX / width) * window.innerWidth;
+            originY = (originY / height) * window.innerHeight;
+        }
+
+        class Star {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = (Math.random() - 0.5) * width;
+                this.y = (Math.random() - 0.5) * height;
+                this.z = Math.random() * width;
+                this.size = baseSize + (Math.random() - 0.5) * 2 * sizeVar;
+                this.size = Math.max(0.1, this.size);
+                const rShift = (Math.random() - 0.5) * colorShift * 255;
+                const gShift = (Math.random() - 0.5) * colorShift * 100;
+                const bShift = (Math.random() - 0.5) * colorShift * 255;
+                const r = Math.min(255, Math.max(200, 255 + rShift));
+                const g = Math.min(255, Math.max(200, 255 + gShift));
+                const b = Math.min(255, Math.max(200, 255 + bShift));
+                this.color = `rgba(${r}, ${g}, ${b}, ${0.5 - Math.random() * brightnessVar})`;
+            }
+
+            update() {
+                this.z -= speed;
+                if (this.z <= 0) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                const sx = (this.x / this.z) * width * fov + originX;
+                const sy = (this.y / this.z) * height * fov + originY;
+                const px = (this.x / (this.z + tailLength)) * width * fov + originX;
+                const py = (this.y / (this.z + tailLength)) * height * fov + originY;
+
+                ctx.beginPath();
+                if (starShape === 'line') {
+                    ctx.moveTo(sx, sy);
+                    ctx.lineTo(px, py);
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.size;
+                    ctx.stroke();
+                } else if (starShape === 'point') {
+                    ctx.arc(sx, sy, this.size, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+            }
+        }
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < density; i++) {
+                stars.push(new Star());
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        // Add click event listener to update origin
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            originX = event.clientX - rect.left;
+            originY = event.clientY - rect.top;
+        });
+
+        // Event listeners for sliders
+        speedSlider.addEventListener('input', () => {
+            speed = parseFloat(speedSlider.value);
+            speedValue.textContent = speed.toFixed(1);
+        });
+
+        tailLengthSlider.addEventListener('input', () => {
+            tailLength = parseFloat(tailLengthSlider.value);
+            tailLengthValue.textContent = tailLength;
+        });
+
+        densitySlider.addEventListener('input', () => {
+            density = parseInt(densitySlider.value);
+            densityValue.textContent = density;
+            initStars();
+        });
+
+        baseSizeSlider.addEventListener('input', () => {
+            baseSize = parseFloat(baseSizeSlider.value);
+            baseSizeValue.textContent = baseSize.toFixed(1);
+            initStars();
+        });
+
+        sizeVarSlider.addEventListener('input', () => {
+            sizeVar = parseFloat(sizeVarSlider.value);
+            sizeVarValue.textContent = sizeVar.toFixed(1);
+            initStars();
+        });
+
+        colorShiftSlider.addEventListener('input', () => {
+            colorShift = parseFloat(colorShiftSlider.value);
+            colorShiftValue.textContent = colorShift.toFixed(2);
+            initStars();
+        });
+
+        brightnessVarSlider.addEventListener('input', () => {
+            brightnessVar = parseFloat(brightnessVarSlider.value);
+            brightnessVarValue.textContent = brightnessVar.toFixed(2);
+            initStars();
+        });
+
+        fovSlider.addEventListener('input', () => {
+            fov = parseFloat(fovSlider.value);
+            fovValue.textContent = fov.toFixed(1);
+        });
+
+        starShapeSelect.addEventListener('change', () => {
+            starShape = starShapeSelect.value;
+            tailLengthSlider.disabled = starShape === 'point'; // Disable tailLength for points
+        });
+
+        toggleMenu.addEventListener('click', () => {
+            menuVisible = !menuVisible;
+            controls.classList.toggle('hidden', !menuVisible);
+            toggleMenu.textContent = menuVisible ? 'Hide Menu' : 'Show Menu';
+            toggleMenu.style.top = menuVisible ? `${controls.offsetHeight + 20}px` : '10px';
+        });
+
+        // Initialize
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        baseSizeValue.textContent = baseSize.toFixed(1); // Sync initial display
+        sizeVarValue.textContent = sizeVar.toFixed(1);   // Sync initial display
+        toggleMenu.style.top = `${controls.offsetHeight + 20}px`; // Initial button position
+        initStars();
+        animate();
+    </script>
+</body>
+</html>
